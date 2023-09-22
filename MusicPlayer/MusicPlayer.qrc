@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/MusicPlayer"/>
+    <qresource prefix="/">
+        <file>res/img/bg.png</file>
+        <file>res/ico/ico.ico</file>
+    </qresource>
+</RCC>
