@@ -71,6 +71,8 @@ void MusicPlayer::OpenFolder() {
             ui->musicName->setText(nameList->at(0));
             ui->nowTime->setText(FormatTime(0));
             ui->totalTime->setText(FormatTime(player->duration()));
+            ui->playButton->setText(tr("播放"));
+            ui->progressBar->setValue(0);
             player->setPosition(0);
             player->stop();
         }
