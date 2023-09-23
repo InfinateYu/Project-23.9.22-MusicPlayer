@@ -115,6 +115,7 @@ void MusicPlayer::PlayNext() {
         return;
     }
     player->stop();
+    ui->playButton->setText(tr("暂停"));
     index = (index + 1) % size;
     player->setSource(playList->at(index));
     player->setPosition(0);
