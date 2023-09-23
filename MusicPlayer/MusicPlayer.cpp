@@ -48,6 +48,7 @@ void MusicPlayer::OpenFolder() {
     // 如果没有取消选择，且文件夹路径不为空
     if (!folderPath.isEmpty()) {
         playList->clear();
+        nameList->clear();
 
         // 获取文件夹下的所有音乐文件名
         QDir dir(folderPath);
