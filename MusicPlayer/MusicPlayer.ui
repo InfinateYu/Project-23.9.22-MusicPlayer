@@ -27,7 +27,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="MusicPlayer.qrc">
-    <normaloff>:/res/ico/ico.ico</normaloff>:/res/ico/ico.ico</iconset>
+    <normaloff>:/res/ico/ico2.ico</normaloff>:/res/ico/ico2.ico</iconset>
   </property>
   <property name="styleSheet">
    <string notr="true">QWidget {
