@@ -22,7 +22,6 @@ MusicPlayer::MusicPlayer(QWidget *parent)
 
     // 设置计时器
     timer = new QTimer(this);
-    timer->start(500);
 
     // 连接信号与槽
     connect(ui->fileButton, &QPushButton::clicked, this, &MusicPlayer::OpenFolder);
@@ -30,6 +29,8 @@ MusicPlayer::MusicPlayer(QWidget *parent)
     connect(ui->nextButton, &QPushButton::clicked, this, &MusicPlayer::PlayNext);
     connect(timer, &QTimer::timeout, this, &MusicPlayer::UpdateProgress);
     connect(player, &QMediaPlayer::mediaStatusChanged, this, &MusicPlayer::CheckMediaStatus);
+    connect(ui->slider, &QSlider::sliderReleased, this, &MusicPlayer::UpdatePosition);
+    connect(ui->volumeSlider, &QSlider::valueChanged, this, &MusicPlayer::UpdateVolume);
 }
 
 
@@ -73,7 +74,8 @@ void MusicPlayer::OpenFolder() {
             ui->nowTime->setText(FormatTime(0));
             ui->totalTime->setText(FormatTime(player->duration()));
             ui->playButton->setText(tr("播放"));
-            ui->progressBar->setValue(0);
+            //ui->progressBar->setValue(0);
+            ui->slider->setValue(0);
             player->setPosition(0);
             player->stop();
         }
@@ -91,12 +93,14 @@ void MusicPlayer::TogglePlay() {
         // 如果媒体播放器的状态是正在播放
         if (player->playbackState() == QMediaPlayer::PlayingState) {
             player->pause();
+            timer->stop();
             ui->playButton->setText(tr("播放"));
         }
         // 如果媒体播放器的状态是暂停或停止
         else if (player->playbackState() == QMediaPlayer::PausedState
                  || player->playbackState() == QMediaPlayer::StoppedState) {
             player->play();
+            timer->start(1000);
             ui->playButton->setText(tr("暂停"));
         }
     }
@@ -108,6 +112,8 @@ void MusicPlayer::CheckMediaStatus(QMediaPlayer::MediaStatus status) {
         player->setSource(playList->at(index));
         ui->musicName->setText(nameList->at(index));
         player->play();
+        timer->stop();
+        timer->start(1000);
     }
 }
 
@@ -116,24 +122,36 @@ void MusicPlayer::PlayNext() {
         return;
     }
     player->stop();
+    timer->stop();
     ui->playButton->setText(tr("暂停"));
     index = (index + 1) % size;
     player->setSource(playList->at(index));
     player->setPosition(0);
     ui->musicName->setText(nameList->at(index));
-    ui->progressBar->setValue(0);
+    //ui->progressBar->setValue(0);
+    ui->slider->setValue(0);
     ui->nowTime->setText(FormatTime(0));
     ui->totalTime->setText(FormatTime(player->duration()));
     player->play();
+    timer->start(1000);
 }
 
 void MusicPlayer::UpdateProgress() {
     if (player->playbackState() == QMediaPlayer::PlayingState) {
         ui->nowTime->setText(FormatTime(player->position()));
         ui->totalTime->setText(FormatTime(player->duration()));
-        int progress = player->position() * 10000 / player->duration();
-        ui->progressBar->setValue(progress); // 更新进度条的值
+        int position = player->position() * 10000 / player->duration();
+        //ui->progressBar->setValue(progress); // 更新进度条的值
+        ui->slider->setValue(position);
     }
+}
+
+void MusicPlayer::UpdatePosition() {
+    if (playList->empty()) {
+        return;
+    }
+    int newPos = player->duration() * ui->slider->sliderPosition() / 10000;
+    player->setPosition(newPos);
 }
 
 QString MusicPlayer::FormatTime(int mSecond) {
@@ -148,4 +166,9 @@ QString MusicPlayer::FormatTime(int mSecond) {
     QString mnt = QString("%1").arg(minute, 2, 10, QChar('0'));
     QString hor = QString("%1").arg(hour, 2, 10, QChar('0'));
     return hor + ":" + mnt + ":" + sec;
+}
+
+void MusicPlayer::UpdateVolume(int val) {
+    float volume = static_cast<float>(val) / 100.0;
+    output->setVolume(volume);
 }

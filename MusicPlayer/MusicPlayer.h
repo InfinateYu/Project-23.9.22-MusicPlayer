@@ -27,6 +27,8 @@ public slots:
     void CheckMediaStatus(QMediaPlayer::MediaStatus);
     void PlayNext();
     void UpdateProgress();
+    void UpdatePosition();
+    void UpdateVolume(int);
 
 private:
     QString FormatTime(int);
