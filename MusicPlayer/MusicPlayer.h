@@ -6,8 +6,12 @@
 #include <QAudioDevice>
 #include <QAudioOutput>
 #include <QList>
+#include <QMap>
 #include <QTimer>
 #include <QFileDialog>
+#include <QTextCOdec>
+#include <QStringConverter>
+#include <QRegularExpression>
 #include <QtWidgets/QMainWindow>
 
 QT_BEGIN_NAMESPACE
@@ -37,6 +41,7 @@ private:
     QAudioOutput* output;
     QList<QUrl>* playList;
     QList<QString>* nameList;
+    QMap<QString, QMap<int, QString>>* lyricsList;
     QTimer* timer;
     int index;
     int size;

@@ -1,5 +1,6 @@
 QT       += core gui
 QT += multimedia
+QT += core5compat
 
 RC_FILE = resource.rc
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets

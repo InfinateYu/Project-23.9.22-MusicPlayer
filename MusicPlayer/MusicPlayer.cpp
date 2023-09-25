@@ -11,6 +11,7 @@ MusicPlayer::MusicPlayer(QWidget *parent)
     size = 0;
     playList = new QList<QUrl>;
     nameList = new QList<QString>;
+    lyricsList = new QMap<QString, QMap<int, QString>>;
 
     // 设置播放器
     player = new QMediaPlayer(this);
@@ -22,6 +23,10 @@ MusicPlayer::MusicPlayer(QWidget *parent)
 
     // 设置计时器
     timer = new QTimer(this);
+
+    // 其他
+    ui->musicName->setAlignment(Qt::AlignHCenter);
+    ui->lyrics->setAlignment(Qt::AlignHCenter);
 
     // 连接信号与槽
     connect(ui->fileButton, &QPushButton::clicked, this, &MusicPlayer::OpenFolder);
@@ -53,9 +58,9 @@ void MusicPlayer::OpenFolder() {
 
         // 获取文件夹下的所有音乐文件名
         QDir dir(folderPath);
-        QStringList filters;
-        filters << "*.mp3" << "*.ogg";
-        QStringList fileNames = dir.entryList(filters, QDir::Files);
+        QStringList musicFilters;
+        musicFilters << "*.mp3" << "*.ogg";
+        QStringList fileNames = dir.entryList(musicFilters, QDir::Files);
 
         // 遍历所有音乐文件名，将它们添加到播放列表中
         for (const QString& fileName : fileNames) {
@@ -64,6 +69,56 @@ void MusicPlayer::OpenFolder() {
             playList->push_back(url);
             QFileInfo fileInfo(fileName);
             nameList->append(fileInfo.baseName());
+        }
+
+        // 获取歌词文件
+        QStringList lyricFilters;
+        lyricFilters << "*.lrc";
+        QStringList lyricFileNames = dir.entryList(lyricFilters, QDir::Files);
+
+        // 遍历歌词
+        for (const QString& fileName : lyricFileNames) {
+            QFile lyrics(dir.absoluteFilePath(fileName));
+            if (!lyrics.open(QIODevice::ReadOnly | QIODevice::Text))
+                continue;
+
+            auto data = lyrics.readAll();
+            QString allLyrics = data.data();
+            QTextCodec *codec = QTextCodec::codecForUtfText(data, nullptr);
+            if (codec == nullptr)
+                codec = QTextCodec::codecForName("GBK");
+
+            allLyrics = codec->toUnicode(data);
+            //qDebug() << allLyrics;
+            QStringList qSList = allLyrics.split('\n', Qt::SkipEmptyParts);
+            lyrics.close();
+
+            // 每个文件对应一个map
+            QMap<int ,QString> lyr;
+            // 时间正则处理
+            QRegularExpression timeRegExp("\\[(\\d{2}):(\\d{2})\\.(\\d{2})\\]");
+            for (auto line : qSList) {
+                // 读取一行文本
+                QRegularExpressionMatch match = timeRegExp.match(line);
+                // 如果找到了时间标签
+                if (match.hasMatch()) {
+                    // 获取时间标签中的分、秒和毫秒，并转换为整数
+                    int min = match.captured(1).toInt();
+                    int sec = match.captured(2).toInt();
+                    int msec = match.captured(3).toInt();
+
+                    // 计算时间（毫秒）= 分*60*1000 + 秒*1000 + 毫秒
+                    int time = min * 60 * 1000 + sec * 1000 + msec;
+
+                    // 去掉时间标签，剩下的就是歌词
+                    QString lyric = line.remove(timeRegExp);
+
+                    // 将时间和歌词插入到QMap中
+                    lyr.insert(time, lyric);
+                }
+            }
+            QFileInfo fileInfo(fileName);
+            lyricsList->insert(fileInfo.baseName(), lyr);
         }
 
         size = playList->size();
@@ -78,6 +133,7 @@ void MusicPlayer::OpenFolder() {
             ui->slider->setValue(0);
             player->setPosition(0);
             player->stop();
+            ui->lyrics->clear();
         }
     }
 }
@@ -100,7 +156,7 @@ void MusicPlayer::TogglePlay() {
         else if (player->playbackState() == QMediaPlayer::PausedState
                  || player->playbackState() == QMediaPlayer::StoppedState) {
             player->play();
-            timer->start(1000);
+            timer->start(500);
             ui->playButton->setText(tr("暂停"));
         }
     }
@@ -108,12 +164,13 @@ void MusicPlayer::TogglePlay() {
 
 void MusicPlayer::CheckMediaStatus(QMediaPlayer::MediaStatus status) {
     if (status == QMediaPlayer::EndOfMedia) {
+        ui->lyrics->clear();
         index = (index + 1) % size;
         player->setSource(playList->at(index));
         ui->musicName->setText(nameList->at(index));
         player->play();
         timer->stop();
-        timer->start(1000);
+        timer->start(500);
     }
 }
 
@@ -123,6 +180,7 @@ void MusicPlayer::PlayNext() {
     }
     player->stop();
     timer->stop();
+    ui->lyrics->clear();
     ui->playButton->setText(tr("暂停"));
     index = (index + 1) % size;
     player->setSource(playList->at(index));
@@ -133,16 +191,33 @@ void MusicPlayer::PlayNext() {
     ui->nowTime->setText(FormatTime(0));
     ui->totalTime->setText(FormatTime(player->duration()));
     player->play();
-    timer->start(1000);
+    timer->start(500);
 }
 
 void MusicPlayer::UpdateProgress() {
     if (player->playbackState() == QMediaPlayer::PlayingState) {
+        // 更新进度条
         ui->nowTime->setText(FormatTime(player->position()));
         ui->totalTime->setText(FormatTime(player->duration()));
         int position = player->position() * 10000 / player->duration();
         //ui->progressBar->setValue(progress); // 更新进度条的值
         ui->slider->setValue(position);
+
+        // 更新歌词
+
+        QString musicName = nameList->at(index);
+        if (lyricsList->contains(musicName)) {
+            QMap<int, QString> lyr = lyricsList->value(musicName);
+            int time = player->position();
+
+            int cnt = 0;
+            for (auto it = lyr.begin(); it != lyr.end(); it++)
+                if (it.key() <= time && it.key() > cnt)
+                    cnt = it.key();
+            if (lyr.contains(cnt))
+                ui->lyrics->setText(lyr[cnt]);
+
+        }
     }
 }
 
@@ -160,12 +235,10 @@ QString MusicPlayer::FormatTime(int mSecond) {
     int second = mSecond / 1000;
     int minute = second / 60;
     second %= 60;
-    int hour = minute / 60;
     minute %= 60;
     QString sec = QString("%1").arg(second, 2, 10, QChar('0'));
     QString mnt = QString("%1").arg(minute, 2, 10, QChar('0'));
-    QString hor = QString("%1").arg(hour, 2, 10, QChar('0'));
-    return hor + ":" + mnt + ":" + sec;
+    return mnt + ":" + sec;
 }
 
 void MusicPlayer::UpdateVolume(int val) {
